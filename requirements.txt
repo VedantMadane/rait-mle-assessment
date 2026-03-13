@@ -1,0 +1,5 @@
+# No mandatory third-party dependencies are required for the offline path.
+# The project uses only the Python standard library by default.
+#
+# Optional:
+# - OpenAI-compatible judge via stdlib HTTP client and env vars
