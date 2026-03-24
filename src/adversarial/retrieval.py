@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import math
 import re
-from collections import Counter
+from collections import defaultdict
 
 from src.schema.models import AttackMatch, AttackPattern
 
@@ -49,7 +49,9 @@ class HashedEmbeddingRetriever:
 
     def _embed_text(self, text: str) -> list[float]:
         tokens = _normalize_tokens(text)
-        features = Counter(tokens)
+        features: defaultdict[str, float] = defaultdict(float)
+        for token in tokens:
+            features[token] += 1.0
         for token in tokens:
             if len(token) > 4:
                 for index in range(len(token) - 2):
@@ -81,4 +83,4 @@ def _l2_normalize(vector: list[float]) -> list[float]:
 
 
 def _cosine_similarity(left: list[float], right: list[float]) -> float:
-    return sum(a * b for a, b in zip(left, right))
+    return sum(a * b for a, b in zip(left, right, strict=True))
