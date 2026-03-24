@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rait-mle-assessment"
+version = "0.1.0"
+description = "Responsible AI evaluation framework for multi-supplier chatbot assessment"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0,<3",
+    "pydantic-settings>=2.0,<3",
+    "pyyaml>=6.0",
+    "structlog>=24.0",
+]
+
+[project.optional-dependencies]
+nli = [
+    "transformers>=4.40",
+    "sentence-transformers>=3.0",
+    "torch>=2.0",
+]
+dev = [
+    "mypy>=1.10",
+    "ruff>=0.4",
+    "pytest>=8.0",
+    "types-PyYAML",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["src", "tests"]
+mypy_path = "."
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["structlog.*", "yaml.*", "sentence_transformers.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["UP017"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
