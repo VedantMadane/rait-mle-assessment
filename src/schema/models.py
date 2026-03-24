@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Supplier(str, Enum):
@@ -12,23 +13,26 @@ class Supplier(str, Enum):
     C = "supplier_c"
 
 
-@dataclass(slots=True)
-class TokenCounts:
+class TokenCounts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     total_tokens: int | None = None
 
 
-@dataclass(slots=True)
-class Traceability:
-    citations: list[str] = field(default_factory=list)
+class Traceability(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    citations: list[str] = Field(default_factory=list)
     rationale: str | None = None
     refusal_policy: str | None = None
     explanation_present: bool | None = None
 
 
-@dataclass(slots=True)
-class AggregationContext:
+class AggregationContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     source_type: str
     reporting_period: str | None = None
     sample_size: int | None = None
@@ -36,10 +40,11 @@ class AggregationContext:
     notes: str | None = None
 
 
-@dataclass(slots=True)
-class InteractionRecord:
+class InteractionRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     supplier: Supplier
-    interaction_id: str
+    interaction_id: str = Field(min_length=1)
     timestamp: datetime
     user_query: str
     system_response: str
@@ -47,29 +52,54 @@ class InteractionRecord:
     model_version: str | None = None
     token_counts: TokenCounts | None = None
     confidence_score: float | None = None
-    demographic_attributes: dict[str, str] = field(default_factory=dict)
+    demographic_attributes: dict[str, str] = Field(default_factory=dict)
     traceability: Traceability | None = None
     aggregation_context: AggregationContext | None = None
     prompt_family_id: str | None = None
-    tags: list[str] = field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     expected_behavior: str | None = None
     attack_category: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("supplier", mode="before")
+    @classmethod
+    def coerce_supplier(cls, value: Any) -> Any:
+        if isinstance(value, Supplier):
+            return value
+        if isinstance(value, str):
+            return Supplier(value)
+        return value
+
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def parse_timestamp_field(cls, value: Any) -> Any:
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            return parse_timestamp(value)
+        return value
+
+    @field_validator("confidence_score")
+    @classmethod
+    def confidence_in_unit_interval(cls, value: float | None) -> float | None:
+        if value is None:
+            return None
+        if not 0.0 <= value <= 1.0:
+            raise ValueError("confidence_score must be between 0 and 1")
+        return value
 
     def to_dict(self) -> dict[str, Any]:
-        payload = asdict(self)
-        payload["supplier"] = self.supplier.value
-        payload["timestamp"] = self.timestamp.isoformat()
-        return payload
+        return self.model_dump(mode="json")
 
 
-@dataclass(slots=True)
-class CoverageProfile:
+class CoverageProfile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     required_fields: list[str]
     eligible_records: int
     scored_records: int
     missing_requirements: list[str]
-    notes: list[str] = field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
 
     @property
     def coverage_ratio(self) -> float:
@@ -78,61 +108,74 @@ class CoverageProfile:
         return round(self.scored_records / self.eligible_records, 4)
 
 
-@dataclass(slots=True)
-class MetricResult:
+class MetricResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     metric_name: str
     supplier: str
     score: float | None
     threshold_label: str
     coverage: CoverageProfile
-    details: dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = Field(default_factory=dict)
+    confidence_interval: tuple[float, float] | None = None
+    effective_n: int | None = None
+    confidence_level: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        payload = asdict(self)
-        payload["coverage"]["coverage_ratio"] = self.coverage.coverage_ratio
+        payload = self.model_dump(mode="json")
+        cov = payload["coverage"]
+        cov["coverage_ratio"] = self.coverage.coverage_ratio
         return payload
 
 
-@dataclass(slots=True)
-class AttackPattern:
+class AttackPattern(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     attack_id: str
     category: str
     attack_prompt: str
     attack_intent: str
     expected_failure_mode: str
-    keywords: list[str] = field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
+    atlas_id: str | None = None
+    owasp_id: str | None = None
 
 
-@dataclass(slots=True)
-class AttackMatch:
+class AttackMatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     pattern: AttackPattern
     similarity: float
 
 
-@dataclass(slots=True)
-class JudgeRun:
+class JudgeRun(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     run_id: int
     score: float
     rationale: str
 
 
-@dataclass(slots=True)
-class JudgeAggregate:
+class JudgeAggregate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     average_score: float
     runs: list[JudgeRun]
     threshold_label: str
 
 
-@dataclass(slots=True)
-class AdversarialRecordResult:
+class AdversarialRecordResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     query: str
     response: str
     matched_patterns: list[dict[str, Any]]
     judge_result: JudgeAggregate
 
 
-@dataclass(slots=True)
-class BatchRobustnessReport:
+class BatchRobustnessReport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     supplier: str
     category_scores: dict[str, float]
     overall_score: float

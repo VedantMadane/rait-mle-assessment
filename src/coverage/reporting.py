@@ -28,11 +28,7 @@ def build_coverage_profile(
     if eligibility_predicate is not None:
         eligible = [record for record in record_list if eligibility_predicate(record)]
 
-    scored = [
-        record
-        for record in eligible
-        if all(field_present(record, field_name) for field_name in required_fields)
-    ]
+    scored = [record for record in eligible if all(field_present(record, field_name) for field_name in required_fields)]
 
     missing_requirements = [
         field_name
