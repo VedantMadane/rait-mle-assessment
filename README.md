@@ -13,22 +13,28 @@ The design goal was not to maximize sophistication. It was to make the scoring p
   - fairness / demographic response parity
   - transparency / explainability
 - A red-team pipeline with:
-  - 24 curated adversarial prompts across four attack categories
+  - curated adversarial prompts (base set plus extensions; see `data/red_team/attacks.json`) across four attack categories
   - embedding-style similarity retrieval using deterministic hashed vector embeddings
   - multi-run LLM-as-judge support with an offline heuristic fallback
   - a scored batch report over benign and adversarial examples
 - Focused unit tests around normalization, coverage, metrics, retrieval, and end-to-end reporting
 
 ## Repository Layout
-- `src/schema/models.py`: canonical records, coverage models, and adversarial result models
-- `src/adapters/`: one adapter per supplier
+- `config/assessment.yaml`: thresholds, heuristic judge coefficients, paths, `scoring_backend`, red-team flags
+- `src/schema/models.py`: Pydantic canonical records, coverage models, and adversarial result models
+- `src/config.py`: typed config loader (optional `RAIT_CONFIG_PATH`)
+- `src/adapters/`: one adapter per supplier (raw dict normalization + `ingest_records` validation)
 - `src/coverage/reporting.py`: coverage utilities and supplier-level data availability summary
-- `src/metrics/`: metric interfaces and the three implemented metrics
-- `src/adversarial/`: red-team dataset loader, retrieval, and judge abstraction
+- `src/metrics/`: metric interfaces and the three implemented metrics (with optional CIs)
+- `src/scoring/`: pluggable keyword vs NLI/cross-encoder scorers
+- `src/statistics/`: Wilson and normal approximation confidence helpers
+- `src/adversarial/`: red-team dataset loader, retrieval, judge, and deterministic mutation helpers
 - `src/cli.py`: one command entry point to run the full assessment
-- `data/`: synthetic supplier data plus the red-team dataset
+- `data/`: synthetic supplier data plus the red-team dataset (`data/dead_letter.jsonl` is created for invalid rows)
 - `docs/metric_definitions.md`: metric definitions, formulas, and thresholds
+- `docs/calibration.md`, `docs/regulatory_landscape.md`, `docs/90_day_plan.md`, `docs/threat_coverage.md`: production and compliance notes
 - `tests/test_pipeline.py`: focused regression tests
+- `.github/workflows/ci.yml`: ruff, mypy strict, pytest on Python 3.11 and 3.12
 
 ## Canonical Schema
 The core normalized object is `InteractionRecord`.
@@ -111,7 +117,7 @@ Why this metric:
 ## Adversarial Robustness Deep Dive
 The red-team pipeline does four things:
 
-1. Loads a curated set of 24 attacks across:
+1. Loads a curated attack set (expandable via config) across:
 - `prompt_injection`
 - `jailbreak`
 - `information_extraction`
@@ -156,6 +162,21 @@ To onboard a new supplier:
 The metric code should not need supplier-specific branching as long as the adapter maps the new source into the canonical schema correctly.
 
 ## How To Run
+
+Install dependencies (from repo root):
+
+```bash
+pip install -e ".[dev]"
+```
+
+Optional NLI / cross-encoder backends:
+
+```bash
+pip install -e ".[dev,nli]"
+```
+
+Set `scoring_backend: nli` in `config/assessment.yaml` to use cross-encoder / NLI paths (with keyword fallbacks if models are unavailable).
+
 Run the full pipeline:
 
 ```bash
@@ -171,7 +192,14 @@ python -m src.cli --output-json
 Run tests:
 
 ```bash
-python -m unittest discover -s tests
+python -m pytest tests/ -v
+```
+
+Override config path (example on Windows):
+
+```bash
+set RAIT_CONFIG_PATH=C:\path\to\custom.yaml
+python -m src.cli
 ```
 
 ## Notes On AI Tooling
