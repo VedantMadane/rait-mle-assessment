@@ -21,3 +21,19 @@ def threshold_label(score: float | None, pass_mark: float, warning_mark: float) 
     if score >= warning_mark:
         return "warning"
     return "fail"
+
+
+def threshold_label_with_ci(
+    score: float | None,
+    ci_lower: float | None,
+    pass_mark: float,
+    warning_mark: float,
+) -> str:
+    """
+    If the point estimate passes but the lower confidence bound sits below the warning
+    threshold, downgrade to 'warning' to reflect sampling uncertainty.
+    """
+    label = threshold_label(score, pass_mark, warning_mark)
+    if ci_lower is not None and score is not None and label == "pass" and ci_lower < warning_mark:
+        return "warning"
+    return label
